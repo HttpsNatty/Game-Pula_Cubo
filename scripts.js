@@ -1,42 +1,166 @@
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext('2d');
 
 const card = document.getElementById("card");
 const cardScore = document.getElementById("card-score");
 
-//Efeitos sonoros
-// let scoreSFX = new audio();
-// let gameOverSFX = new audio();
-// let jumpSFX = new audio();
+//SFX
+let pontuacaoSFX = new Audio("https://archive.org/download/classiccoin/classiccoin.wav");
+let fimJogoSFX = new Audio("https://archive.org/download/smb_gameover/smb_gameover.wav");
+let pularSFX = new Audio("https://archive.org/download/jump_20210424/jump.wav");
 
-//Usado para "setInterval"
-let presetTime = 1000;
-//Aumenta a velocidade do inimigo a cada 10 pontos
-let enemySpeed = 5;
-let score = 0;
+
+let jogador = null;
+let pontuacao = 0;
 //Confere se o jogador marcou mais 10 pontos
-let scoreIncrement = 0;
+let aumentoPontuacao = 0;
+let arrayBlocos = [];
+//Aumenta a velocidade do inimigo a cada 10 pontos
+let velocidadeInimigo = 5;
 //Não marca mais de um ponto ao mesmo tempo
-let canScore = true;
+let podePontuar = true;
+let presetTime = 1000;
 
-function startGame(){
-    player = new Player(150,350,50,"black");
-    arrayBlocks = [];
-    score = 0;
-    scoreIncrement = 0;
-    enemySpeed = 5;
-    canScore = true;
+function iniciarJogo() { //Função para começar o jogo
+    jogador = new Jogador(150,350,50,"pink");
+    arrayBlocos = [];
+    pontuacao = 0;
+    aumentoPontuacao = 0;
+    velocidadeInimigo = 5;
+    podePontuar = true;
     presetTime = 1000;
 }
 
-function restartGame(button){
-    card.style.display = "none";
-    button.blur();
-    startGame();
-    requestAnimationFrame(animate);
+function GeradorNumero(min,max){
+    return Math.floor(Math.random() * (max - min + 1) ) + min;
 }
 
-function drawBackgroundLine(){
+function Colisores(jogador,bloco){
+    let s1 = Object.assign(Object.create(Object.getPrototypeOf(jogador)), jogador);
+    let s2 = Object.assign(Object.create(Object.getPrototypeOf(bloco)), bloco);
+    s2.size = s2.size - 10;
+    s2.x = s2.x + 10;
+    s2.y = s2.y + 10;
+    return !(
+        s1.x>s2.x+s2.size || //R1 is to the right of R2
+        s1.x+s1.size<s2.x || //R1 to the left of R2
+        s1.y>s2.y+s2.size || //R1 is below R2
+        s1.y+s1.size<s2.y //R1 is above R2
+    )
+}
+
+//Confere se passou o bloco
+function passouBloco(jogador, bloco){
+    return(
+        jogador.x + (jogador.size / 2) > bloco.x + (bloco.size / 4) && 
+        jogador.x + (jogador.size / 2) < bloco.x + (bloco.size / 4) * 3
+    )
+}
+
+class Jogador {
+    constructor(x,y,size,color){
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.color = color;
+        this.alturaPular = 12;
+        //Configuração do Pulo
+        this.podePular = false;
+        this.contadorPular = 0;
+        this.pularUp = true;
+        //Configuração para rotação
+        this.giro = 0;
+        this.girodetalhe = 90 / 32;
+    }
+
+    desenha() {
+        this.pular();
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x,this.y,this.size,this.size);
+        if(this.podePular) this.contraRotacao();
+    }
+
+    pular() {
+        if(this.podePular){
+            this.contadorPular++;
+            if(this.contadorPular < 15){
+                //Go up
+                this.y -= this.alturaPular;
+            }else if(this.contadorPular > 14 && this.contadorPular < 19){
+                this.y += 0;
+            }else if(this.contadorPular < 33){
+                //Come back down
+                this.y += this.alturaPular;
+            }
+            this.rotacao();
+            //End the cycle
+            if(this.contadorPular >= 32){
+                //Reseta o giro para o próximo pulo
+                this.contraRotacao();
+                this.giro = 0;
+                this.podePular = false;
+            }
+        }    
+    }    
+
+    rotacao() {
+        let offsetXPosition = this.x + (this.size / 2);
+        let offsetYPosition = this.y + (this.size / 2);
+        ctx.translate(offsetXPosition,offsetYPosition);
+        //Divisão transforma graus em radianos
+        ctx.rotate(this.giro * Math.PI / 180);
+        ctx.rotate(this.girodetalhe * Math.PI / 180 );
+        ctx.translate(-offsetXPosition,-offsetYPosition);
+        
+        this.giro += this.girodetalhe;
+    }
+
+    contraRotacao() {
+        //Gira o cubo ao contrario
+        let offsetXPosition = this.x + (this.size / 2);
+        let offsetYPosition = this.y + (this.size / 2);
+        ctx.translate(offsetXPosition,offsetYPosition);
+        ctx.rotate(-this.giro * Math.PI / 180 );
+        ctx.translate(-offsetXPosition,-offsetYPosition);
+    }
+}
+
+class EvitaBloco {
+    constructor(size, velocidade){
+        this.x = canvas.width + size;
+        this.y = 400 - size;
+        this.size = size;
+        this.color = "purple";
+        this.deslizaVelocidade = velocidade;
+    }
+    desenha() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x,this.y,this.size,this.size);
+    }
+    desliza() {
+        this.desenha();
+        this.x -= this.deslizaVelocidade;
+    }
+}
+
+function geracaoblocos() {
+    let timeDelay = intervaloAleatorio(presetTime);
+    arrayBlocos.push(new EvitaBloco(50, velocidadeInimigo));
+
+    setTimeout(geracaoblocos, timeDelay);
+}
+
+function intervaloAleatorio(tempoIntervalo) {
+    let returnTime = tempoIntervalo;
+    if(Math.random() < 0.5){
+        returnTime += GeradorNumero(presetTime / 3, presetTime * 1.5);
+    }else{
+        returnTime -= GeradorNumero(presetTime / 5, presetTime / 2);
+    }
+    return returnTime;
+}
+
+function desenhaBackground() {
     ctx.beginPath();
     ctx.moveTo(0,400);
     ctx.lineTo(600,400);
@@ -45,179 +169,86 @@ function drawBackgroundLine(){
     ctx.stroke();
 }
 
-function drawScore() {
+function desenhaPonto() {
     ctx.font = "80px Arial";
     ctx.fillStyle = "black";
-    let scoreString = score.toString();
-    let xOffset = ((scoreString.length - 1) *20);
-    ctx.fillText(scoreString, 28 - xOffset, 100);
+    let scoreString = pontuacao.toString();
+    let xOffset = ((scoreString.length - 1) * 20);
+    ctx.fillText(scoreString, 280 - xOffset, 100);
 }
 
-//Função de gerar aleatoriamente o max e min
-function getRandomNumber(min,max){
-    return Math.floor(Math.random() * (max - min + 1) + min);
-}
-
-function randomNumberInterval(timeInterval){
-    let returnTime = timeInterval;
-    if(Math.random() < 0.5){
-        returnTime += getRandomNumber(presetTime / 3, presetTime * 1.5);
-    }else{
-        returnTime -= getRandomNumber(presetTime / 5, presetTime / 2);
-    }
-    return returnTime;
-}
-    
-
-class Player{
-    constructor(x,y,size,color){
-        this.x=x;
-        this.y=y;
-        this.size=size;
-        this.color=color;
-        this.jumpHeight = 12;
-        //Configuração do Pulo
-        this.shouldJump = false;
-        this.jumpCounter = 0;
-        //Animação de girar
-        this.spin = 0;
-        this.spinIncrement = 90 / 32;
-    }
-}
-
-function rotation() {
-    let offsetXPosition = this.x + (this.size / 2);
-    let offsetYPosition = this.y + (this.size / 2);
-    ctx.translate(offsetXPosition,offsetYPosition);
-    //Divisão que converte graus em radianos
-    ctx.rotate(this.spin * Math.PI / 180);
-    ctx.rotate(this.spinIncrement * Math.PI / 180);
-    ctx.translate(-offsetXPosition,-offsetYPosition);
-    this.spin += this.spinIncrement;
-}
-
-function jump() {
-    if(this.shouldJump){
-        this.jumpCounter++;
-        if(this.jumpCounter <15){
-            this.y -= this.jumpHeight;
-        }else if(this.jumpCounter > 14 && this.jumpCounter <19){
-            this.y += 0;
-        }else if(this.jumpCounter < 33){
-            this.y += this.jumpHeight
+function aumentarVelocidade() {
+    //Confere se é preciso aumentar a velocidade do jogo
+        if(aumentoPontuacao + 10 === pontuacao){
+            aumentoPontuacao = pontuacao;
+            velocidadeInimigo++;
+            presetTime >= 100 ? presetTime -= 100 : presetTime = presetTime / 2;
+            //Aumenta a velocidade do bloco
+            arrayBlocos.forEach(bloco => {
+                bloco.deslizaVelocidade = velocidadeInimigo;
+            });
+            console.log("Velocidade Aumentada");
         }
-        this.rotation();
-        //Acaba o ciclo do Pulo
-        if(this.jumpCounter >=32){
-            this.counterRotation();
-            this.spin = 0;
-            this.shouldJump = false;
-        }
-    }
-    function draw() {
-        this.jump();
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x,this.y,this.size,this.size);
-        if(this.shouldJump) this.counterRotation();
-    }
 }
 
-let player = new Player(150,350,50,"black");
-
-class AvoidBlock{
-    constructor(size,speed){
-        this.x = canvas.width + size;
-        this.y = 400 - size;
-        this.size = size; 
-        this.color = "red";
-        this.splideSpeed = speed;
-    }
-    draw(){
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x,this.y,this.size,this.color);
-    }
-    slide(){
-        this.draw();
-        this.x -= this.splideSpeed;
-    }
-}
-
-let arrayBlocks = [];
-
-//Spwan de blocos
-function generateBlocks(){
-    let timeDelay = randomNumberInterval(presetTime);
-    arrayBlocks.push(new AvoidBlock(50, enemySpeed));
-
-    setTimeout(generateBlocks, timeDelay);
-}
-
-//Se colidir
-function squaresColliding(player, block){
-    let s1 = Object.assign(Object.create(Object.getPrototypeOf(player)),player);
-    let s2 = Object.assign(Object.create(Object.getPrototypeOf(block)), block);
-    s2.size = s2.size - 10;
-    s2.x = s2.x + 10;
-    s2.y = s2.y + 10;
-    return !(
-        s1.x>s2.x+s2.size ||
-        s1.x+s1.size<s2.x ||
-        s1.y>s2.y+s2.size ||
-        s1.y+s1.size<s2.y
-    )
-}
-
-function isPastBlock(player, block){
-    return (
-        player.x + (player.size / 2) > block.x (block.size / 4) &&
-        player.x + (player.size / 2) < block.x (block.size / 4) * 3
-    )
-}
-
-function shouldIncreaseSpeed(){
-    if(scoreIncrement + 10 === score){
-        scoreIncrement = score;
-        enemySpeed++;
-        presetTime >= 100 ? presetTime -= 100 : presetTime = presetTime / 2;
-        arrayBlocks.forEach(block => {
-            block.splideSpeed = enemySpeed;
-        });
-    }
-}
-
-let animationId = null;
-function animate(){
-    animationId = requestAnimationFrame(animate);
+let animacaoId = null;
+function animar() {
+    animacaoId = requestAnimationFrame(animar);
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    //Lógica para canvas
+    desenhaBackground();
+    desenhaPonto();
+    jogador.desenha();
 
-    //Lógica do canvas
-    drawBackgroundLine();
-    drawScore();
-    player.draw;
+    aumentarVelocidade();
 
-    //Checagem da velocidade do jogo
-    shouldIncreaseSpeed();
-
-    arrayBlocks.forEach((arrayBlock, index) => {
-        arrayBlock.slide();
-        //Fim de jogo quando colidir com o jogador
-        if(squaresColliding(player, arrayblock)){
-            // gameOverSFX.play();
-            cardScore.textContent = score;
+    arrayBlocos.forEach((arrayBloco, index) => {
+        arrayBloco.desliza();
+        //Fim de jogo se colidirem
+        if(Colisores(jogador, arrayBloco)){
+            fimJogoSFX.play();
+            cardScore.textContent = pontuacao;
             card.style.display = "block";
-            cancelAnimationFrame(animationId);
+            cancelAnimationFrame(animacaoId);
         }
-        if(isPastBlock(player, arrayBlock) && canScore){
-            canScore = false;
-            // scoreSFX.currentTime = 0;
-            // scoreSFX.play();
-            score ++;
+        //Se passou o bloco pode pontuar
+        if(passouBloco(jogador, arrayBloco) && podePontuar){
+            podePontuar = false;
+            pontuacaoSFX.currentTime = 0;
+            pontuacaoSFX.play();
+            pontuacao++;            
         }
-        if((arrayBlock.x + arrayBlock.size) <= 0){
-            setTimeout(() =>{
-                arrayBlocks.splice(index, 1);
+        //Apaga o bloco que não é mais visivel na cena
+        if((arrayBloco.x + arrayBloco.size) <= 0){
+            setTimeout(() => {
+                arrayBlocos.splice(index, 1);
             }, 0)
         }
-    })
+    });
 }
 
+//Chama assim que abre o jogo
+iniciarJogo();
+animar();
+setTimeout(() => {
+    geracaoblocos();
+}, intervaloAleatorio(presetTime))
+
+addEventListener("keydown", e => {
+    if(e.code === 'Space'){
+        if(!jogador.podePular){
+            pularSFX.play();
+            jogador.contadorPular = 0;
+            jogador.podePular = true;
+            podePontuar = true;
+        }
+    }
+});
+
+//Reinicia o jogo
+function reiniciarJogo(button) {
+    card.style.display = "none";
+    button.blur();
+    iniciarJogo();
+    requestAnimationFrame(animar);
+}
