@@ -5,9 +5,9 @@ const card = document.getElementById("card");
 const cardScore = document.getElementById("card-score");
 
 //SFX
-let pontuacaoSFX = new Audio("https://archive.org/download/classiccoin/classiccoin.wav");
-let fimJogoSFX = new Audio("https://archive.org/download/smb_gameover/smb_gameover.wav");
-let pularSFX = new Audio("https://archive.org/download/jump_20210424/jump.wav");
+let pontuacaoSFX = new Audio("https://ia601500.us.archive.org/21/items/som-de-moeda-do-sonic/Som%20de%20moeda%20do%20sonic.wav");
+let fimJogoSFX = new Audio("https://ia601400.us.archive.org/5/items/minecraft-death-sound-effect-online-audio-converter.com/Minecraft%20Death%20Sound%20Effect%20%28online-audio-converter.com%29.wav");
+let pularSFX = new Audio("https://ia601506.us.archive.org/30/items/sfxpulo-online-audio-converter.com_202209/sfxpulo%20%281%29%20%28online-audio-converter.com%29.wav");
 
 
 let jogador = null;
@@ -22,7 +22,7 @@ let podePontuar = true;
 let presetTime = 1000;
 
 function iniciarJogo() { //Função para começar o jogo
-    jogador = new Jogador(150,350,50,"pink");
+    jogador = new Jogador(150,350,50,"yellow");
     arrayBlocos = [];
     pontuacao = 0;
     aumentoPontuacao = 0;
